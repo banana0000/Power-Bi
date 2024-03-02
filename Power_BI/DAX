@@ -1,0 +1,207 @@
+Calendar = ADDCOLUMNS(
+            CALENDAR(DATE(2017,01,01), DATE(2022, 12,31)),
+                "Ev", YEAR([Date]),
+                "Honap", MONTH([Date]),
+                "HonapTeljes", FORMAT([Date], "MMMM"),
+                "HonapRovid", FORMAT([Date], "MMM"),
+                "HetNapja", WEEKDAY([Date],2),
+                "Munkanap", IF(WEEKDAY([Date],2)=6 || WEEKDAY([Date],2)=7, "Nem", "Igen"),
+                "HetNapjaTel", FORMAT([Date], "DDDD"),
+                "NegyedEv", "Q" & QUARTER([Date]),
+                "EvPeriodus", YEAR([Date]) & " " & "P" & FORMAT([Date], "MM"),
+                "EvHonap", YEAR([Date]) & " " & FORMAT([Date], "MMM"))
+
+Calendar = ADDCOLUMNS(
+            CALENDAR(DATE(2012,01,01), DATE(2019, 12,31)),
+                "Year", YEAR([Date]),
+                "Month", MONTH([Date]),
+                "MonthName", FORMAT([Date], "MMM"),
+                "Weekday", WEEKDAY([Date],2),
+                "IsWD", IF(WEEKDAY([Date],2)=6 || WEEKDAY([Date],2)=7, "No", "Yes"),
+                "YearPeriod", YEAR([Date]) & " " & "P" & FORMAT([Date], "MM"),
+                "YearMonth", YEAR([Date]) & " " & FORMAT([Date], "MMM"))
+
+DateOpened = MID('Quality Data'[TFRID], 7, 2) & "/" & MID('Quality Data'[TFRID], 5, 2) & "/" & LEFT('Quality Data'[TFRID], 4)
+
+BelfoldiErtekesites = 
+SUMX(
+    FILTER(
+        Ertekesites,
+        RELATED(Ugyfelek[Orszag]) = "Hungary"
+    ),
+    Ertekesites[Mennyiseg] * Ertekesites[EgysegAr]
+)
+
+BudapestCalc = CALCULATE([OsszErtekesites], 'Ugyfelek'[Varos] = "Budapest"
+
+BudapestErtekesites = 
+SUMX(
+    FILTER(
+        Ertekesites,
+        RELATED(Ugyfelek[Varos]) = "Budapest"
+    ),
+    Ertekesites[Mennyiseg] * Ertekesites[EgysegAr]
+)
+
+FilterProba = 
+SUMX(
+    FILTER(
+        Ertekesites,
+        RELATED(Termekek[Kategoria]) <> "Írószerek"
+    ),
+    Ertekesites[Mennyiseg] * Ertekesites[EgysegAr]
+)
+
+MagyarorszagErtekesites = 
+CALCULATE([OsszErtekesites], 'Ugyfelek'[Orszag] = "Hungary")
+
+Orszag% = 
+DIVIDE(
+    [OsszErtekesites],
+    [TeljesOsszErtekesites]
+)
+
+OsszErtekesites = 
+SUMX(
+    Ertekesites,
+    Ertekesites[Mennyiseg] * Ertekesites[EgysegAr]
+)
+
+OsszKoltseg = 
+SUMX(
+    Ertekesites,
+    Ertekesites[Mennyiseg] * RELATED(Termekek[Koltseg/db])
+)
+
+Profit = [OsszErtekesites] - [OsszKoltseg]
+
+Profit% = 
+DIVIDE(
+    [Profit],
+    [OsszErtekesites]
+)
+
+TeljesOsszErtekesites = CALCULATE([OsszErtekesites], REMOVEFILTERS(Ugyfelek[Orszag]))
+
+USA_Hungary_Ertekesites = 
+CALCULATE(
+    [OsszErtekesites],
+    'Ugyfelek'[Orszag] IN { "Hungary", "United States" }
+)
+
+USAErtekesites = 
+CALCULATE([OsszErtekesites], 'Ugyfelek'[Orszag] = "United States")
+
+VidekiErtekesites = 
+SUMX(
+    FILTER(
+        Ertekesites,
+        RELATED(Ugyfelek[Varos]) <> "Budapest" &&
+        RELATED(Ugyfelek[Orszag]) = "Hungary"
+    ),
+    Ertekesites[Mennyiseg] * Ertekesites[EgysegAr]
+)
+
+ElozoEcYTDErtekesites = 
+CALCULATE(
+    [ElozoEvErtekesites],
+    DATESYTD('Calendar'[Date])
+)
+
+ElozoEvErtekesites = 
+CALCULATE(
+    [OsszErtekesites],
+    SAMEPERIODLASTYEAR('Calendar'[Date])
+)
+
+ElozoHoErtekesites = 
+CALCULATE(
+    [OsszErtekesites],
+    DATEADD('Calendar'[Date], -1, MONTH)
+)
+
+HaviValtozas = 
+IF(
+    ISBLANK([OsszErtekesites]), BLANK(),
+[OsszErtekesites] - [ElozoHoErtekesites]
+)
+
+YTDErtekesites = 
+IF(
+    ISBLANK([OsszErtekesites]), BLANK(),
+CALCULATE(
+    [OsszErtekesites],
+    DATESYTD('Calendar'[Date])
+)
+)
+
+ElozoHoErtekesites = 
+CALCULATE(
+    [OsszErtekesites],
+    DATEADD('Calendar'[Date], -1, MONTH)
+)
+
+ElozoEvErtekesites = 
+CALCULATE(
+    [OsszErtekesites],
+    SAMEPERIODLASTYEAR('Calendar'[Date])
+)
+
+ElozoEcYTDErtekesites = 
+CALCULATE(
+    [ElozoEvErtekesites],
+    DATESYTD('Calendar'[Date])
+)
+
+
+Prio = 
+VAR meroszam =
+DIVIDE(
+    CALCULATE([OsszErtekesites],'Calendar'[Ev] = 2021),
+    CALCULATE([OsszErtekesites],'Calendar'[Ev] = 2021, ALL(Termekek[Kategoria]))
+)
+RETURN
+
+SWITCH(
+    TRUE(),
+    meroszam > 0.25, "Nagyon fontos",
+    meroszam > 0.15, "Fontos",
+    meroszam > 0.1, "Atlagos",
+    "Nem fontos"
+
+TTErtekesNev = 
+IF(
+    HASONEVALUE(Termekek[Kategoria]),
+    "ÖsszÉrtékesítés - " & SELECTEDVALUE(Termekek[Kategoria]),
+    "ÖsszÉrtékesítés"
+)
+
+TTProfitsNev = 
+IF(
+    HASONEVALUE(Termekek[Kategoria]),
+    "Profit - " & SELECTEDVALUE(Termekek[Kategoria]),
+    "Profit"
+)
+
+
+Title = "VarArsdel Report for "&IF(HAESONVALUE(Locations[country])=TRUE, VALUES(lOCATIONS[Country]),"more Countries")
+
+Total_Revenue=SUM(InternationalSales[Revenue])
+Uban_Sales=CALCULATE([Total_Revenue],'Product'[Category]="Urban")
+Urban_Sales_share=DIVIDEF([Urban_Sales]),[Total_Revenue],0)
+Urban_Target=0.75
+
+YoY:
+Total Revenue = sum(Purchase[Revenue])
+Previous Year Revenue = CALCULATE[Total_Revenue],  
+                            DATEADD(Calendar[Date]),-1,Year)
+
+YoY Variance = [Total Revenue] - [Previous Year Revenue]
+
+
+Yoy %: 
+
+YoY Variance % = DIVIDE([Yoy Variance],[Previous Year Revenue])
+
+
+
